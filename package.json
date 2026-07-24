@@ -1,0 +1,20 @@
+{
+  "name": "harness-workflow",
+  "version": "0.1.0",
+  "description": "一个 harness 工作流，用于实现自动完成软件开发工作流。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tangjiahui-cn/harness-workflow.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tangjiahui-cn/harness-workflow/issues"
+  },
+  "homepage": "https://github.com/tangjiahui-cn/harness-workflow#readme"
+}
