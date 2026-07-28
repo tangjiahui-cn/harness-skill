@@ -240,7 +240,18 @@ spec-generator Agent 报告后，父 Agent 启动校验循环，驱动 **spec-re
 
 > - 循环最多 **5 轮**，超过后强制退出
 > - spec-reviewer Agent 每次都以"第一次审查"的心态重新审视，不要因为之前提过建议就放行
-> - 父 Agent 判断"无问题"的标准：spec-suggest.md 中没有指出逻辑遗漏、功能缺失、矛盾之处，仅可能有少量措辞建议
+>
+> **审查标准**：spec-reviewer Agent 使用 `references/review-spec.md` 中定义的 P0/P1/P2 分类表和检查重点作为审查标准（详见 [review-spec.md](../references/review-spec.md)）。
+>
+> **启动 prompt 改造**：启动 spec-reviewer Agent 时，将 `references/review-spec.md` 的以下内容注入 prompt：
+> - P0/P1/P2 分类表（用于分类建议）
+> - 检查重点清单（用于指导审查方向）
+> - 判断标准（用于指导建议的"度"）
+>
+> **父 Agent 判断"无问题"的标准**：
+> - spec-reviewer 输出的建议文件中：
+>   - P0 列表为空（无遗漏、无矛盾、方案可行、验收标准可衡量，见 `references/review-spec.md §4`）
+>   - P1 列表中无"内容缺失"类的实质性问题，仅含措辞或格式建议
 
 #### 3.3 用户确认
 
@@ -333,7 +344,18 @@ plan-generator Agent 报告后，父 Agent 启动校验循环，驱动 **plan-re
 
 > - 循环最多 **5 轮**，超过后强制退出
 > - plan-reviewer Agent 每次都以"第一次审查"的心态重新审视
-> - 父 Agent 判断"无问题"的标准：plan-suggest.md 中没有指出步骤遗漏、文件缺失、依赖顺序错误等实质性问题
+>
+> **审查标准**：plan-reviewer Agent 使用 `references/review-plan.md` 中定义的 P0/P1/P2 分类表和检查重点作为审查标准（详见 [review-plan.md](../references/review-plan.md)）。
+>
+> **启动 prompt 改造**：启动 plan-reviewer Agent 时，将 `references/review-plan.md` 的以下内容注入 prompt：
+> - P0/P1/P2 分类表（用于分类建议）
+> - 检查重点清单（用于指导审查方向）
+> - 判断标准（用于指导建议的"度"）
+>
+> **父 Agent 判断"无问题"的标准**：
+> - plan-reviewer 输出的建议文件中：
+>   - P0 列表为空（无步骤遗漏、依赖正确、顺序合理、验收标准可衡量，见 `references/review-plan.md §4`）
+>   - P1 列表中无"步骤遗漏"或"依赖错误"类的实质性问题
 
 #### 4.3 用户确认
 
