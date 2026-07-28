@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "skill-creator": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/skill-creator/SKILL.md",
+      "computedHash": "5ea13a6d9f0d4bb694405d79acd00cadec0d21bb138c4dd10fcf3c500cb835c2"
+    },
+    "review-skill": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/review-skill/SKILL.md",
+      "computedHash": "2463374757a962e018cc87073f7b60406f0f6bc15ca68749fcd47a353c102b87"
+    }
+  }
+}

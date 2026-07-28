@@ -1,0 +1,44 @@
+{
+  "skill_name": "review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我审查以下代码变更，看看有没有问题：\n\n```diff\ndiff --git a/src/user.ts b/src/user.ts\nindex a1b2c3d..e4f5g6h 100644\n--- a/src/user.ts\n+++ b/src/user.ts\n@@ -10,7 +10,7 @@ export function deleteUser(id: string) {\n   const user = db.users.find(u => u.id === id)\n-  if (!user.isAdmin) {\n+  if (adminOnly && !user.isAdmin) {\n     throw new ForbiddenError('no permission')\n   }\n-  db.users.remove(id)\n+  db.users.remove(user.name)\n   logger.info(`User ${id} deleted`)\n }\n```",
+      "expected_output": "审查报告包含 P0 级别问题（逻辑错误：db.users.remove(user.name) 应为 db.users.remove(id)）",
+      "files": [],
+      "expectations": [
+        "报告标记了 P0 级别的逻辑错误（user.name 不是有效的索引）",
+        "报告标记了 NPE 风险（未判断 user 是否为 null）",
+        "报告包含具体的修改建议（含代码 diff）",
+        "报告包含文件路径和行号",
+        "问题描述为中文"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "帮我看一下这段代码改得怎么样：\n\n```diff\ndiff --git a/src/order.ts b/src/order.ts\nindex x1y2z3..a4b5c6 100644\n--- a/src/order.ts\n+++ b/src/order.ts\n@@ -1,6 +1,16 @@\n-export function calc(a, b, c) {\n-  return a * b - c\n+export function calcDiscount(price, rate, threshold) {\n+  const d = price * rate\n+  if (d > threshold) {\n+    return d\n+  }\n+  return 0\n }\n+\n+export function calcTax(price, rate) {\n+  const t = price * rate\n+  if (t > 100) {\n+    return t * 0.2\n+  }\n+  return t * 0.1\n+}\n```",
+      "expected_output": "审查报告指出命名和魔法数字问题（P1），没有 P0 问题",
+      "files": [],
+      "expectations": [
+        "报告指出单字母变量名问题（d, t 应改为有意义名称）",
+        "报告指出魔法数字问题（100、0.2、0.1 未定义为常量）",
+        "问题级别为 P1（没有 P0）",
+        "报告包含具体的重构建议",
+        "问题描述为中文"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "帮我审查下面这段代码：\n\n```diff\ndiff --git a/src/api/handler.ts b/src/api/handler.ts\nindex m9n8o7..p6q5r4 100644\n--- a/src/api/handler.ts\n+++ b/src/api/handler.ts\n@@ -15,7 +15,7 @@ export async function handleRequest(req: Request) {\n   const data = JSON.parse(req.body)\n+  const sql = `SELECT * FROM users WHERE name = '${data.name}'`\n+  const result = await db.query(sql)\n   return result.rows\n }\n@@ -30,10 +30,12 @@ export async function processPayment(orderId: string) {\n   try {\n     const order = await db.orders.findById(orderId)\n+    await payment.charge(order.total)\n+    await db.orders.updateStatus(orderId, 'paid')\n   } catch (e) {}\n   return { success: true }\n }\n```",
+      "expected_output": "审查报告指出 SQL 注入（P0）和空 catch（P0/P1），以及 return 顺序问题",
+      "files": [],
+      "expectations": [
+        "报告标记了 SQL 注入风险（P0 安全漏洞）",
+        "报告标记了空 catch 块吞异常（P0 或 P1）",
+        "报告指出 try 块外 return { success: true } 在失败时也会返回成功",
+        "每个问题包含文件和行号",
+        "问题描述为中文"
+      ]
+    }
+  ]
+}
