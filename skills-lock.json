@@ -12,6 +12,12 @@
       "sourceType": "local",
       "skillPath": "skills/review-skill/SKILL.md",
       "computedHash": "2463374757a962e018cc87073f7b60406f0f6bc15ca68749fcd47a353c102b87"
+    },
+    "spec-create-harness": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/spec-create-harness/SKILL.md",
+      "computedHash": "6389b70a227ae98dc8517893ab91471aebf87b946b4c83c2cb03d3e4b13cd01b"
     }
   }
 }
