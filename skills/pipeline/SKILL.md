@@ -1,5 +1,5 @@
 ---
-name: spec-create-harness
+name: pipeline
 description: 完整的软件开发工作流 skill。用户输入文本需求后，自动生成规格文档(spec)、生成执行计划(plan)、逐步执行计划(每步git commit)、运行测试，通过后询问是否推送到远程。触发词：生成功能、开发功能、实现需求、写代码、创建模块、spec、plan、软件开发工作流
 compatibility:
   type: claude

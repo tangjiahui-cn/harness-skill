@@ -46,13 +46,18 @@ flowchart LR
 
 ## 快速安装
 
-在项目目录下运行：
+安装 skill：
 
 ```bash
-npx skills add https://github.com/tangjiahui-cn/harness-skill --skill spec-create-harness
+# 完整流程控制
+npx skills add https://github.com/tangjiahui-cn/harness-skill --skill pipeline
+
+# 轻量流程控制
+npx skills add https://github.com/tangjiahui-cn/harness-skill --skill pipeline-lite
+
 ```
 
-安装完成后，在 Claude Code 中即可使用 `/spec-create-harness` 或相关触发词调用该 skill。
+安装完成后，在 Claude Code 中即可使用 `/pipeline` 或相关触发词调用该 skill。
 
 ---
 
