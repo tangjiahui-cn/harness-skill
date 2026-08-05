@@ -150,8 +150,8 @@ initialized → spec_pending → [spec_reviewing] → spec_confirming → plan_p
 - **确认节点**：spec 确认、plan 确认、推送确认三个节点必须等用户明确回复
 - **错误透明**：出错了告知用户错误信息和你的分析，不要默默重试
 - **适度灵活**：用户可能在过程中提出修改需求，回到对应环节重新调整
-- **Agent 命名**：各阶段 Agent 职责不同，使用 `spec-generator` / `spec-reviewer` / `plan-generator` / `plan-reviewer` / `execution` 区分，每次循环启动新实例
-- **子 Agent 协作**：spec 和 plan 的生成均交给独立子 Agent 处理，父 Agent 只负责启动子 Agent、接收报告、与用户交互确认。子 Agent 与父 Agent 通过校验建议文件（`spec-suggest.md` / `plan-suggest.md`）协作——reviewer 输出结构化建议，父 Agent 读取并判断是否有实质性问题，然后驱动下一轮生成或退出。子 Agent 之间不直接交互，所有通信通过父 Agent 协调
+- **Agent 命名**：各阶段 Agent 职责不同，子 Agent 使用 `spec-reviewer` / `plan-reviewer` / `execution` 区分，每次循环启动新实例；spec/plan 的生成与修补由父 Agent 直接完成
+- **子 Agent 协作**：spec 和 plan 的生成与修补均由父 Agent 完成，子 Agent 仅承担独立审查（spec-reviewer / plan-reviewer）与执行（execution）。父 Agent 负责生成产物、启动子 Agent、接收报告、与用户交互确认。子 Agent 与父 Agent 通过校验建议文件（`spec-suggest.md` / `plan-suggest.md`）协作——reviewer 输出结构化建议，父 Agent 读取并判断是否有实质性问题，亲自将建议修复到 spec/plan 后删除建议文件。子 Agent 之间不直接交互，所有通信通过父 Agent 协调
 - **中断恢复**：每次启动时检查 `.harness/temp/` 中是否有未完成的状态文件，询问用户是否继续
 - **分支安全**：执行前检查当前分支，保护分支上询问是否创建功能分支
 
@@ -180,20 +180,20 @@ initialized → spec_pending → [spec_reviewing] → spec_confirming → plan_p
 
 ### Step 3：Spec 生成
 
-spec 生成阶段由**两个独立子 Agent** 协作完成（注意：每次循环都启动新的 Agent 实例，角色名仅描述职责）：
+spec 生成由**父 Agent 直接完成**，可选配合一个独立子 Agent 进行 AI 校验：
 
-- **spec-generator Agent**：负责初始生成 spec.md，以及根据校验建议修补 spec.md
+- **父 Agent**：负责生成 spec.md，以及根据校验建议修补 spec.md
 - **spec-reviewer Agent**：负责校验 spec.md，生成 `spec-suggest.md`（校验建议文件）
 
-spec-generator 完成初始生成后，父 Agent 向用户展示生成结果，由用户决定是否进入 AI 校验循环。如果选择 AI 校验，则驱动"生成 → 校验 → 修补 → 再校验"的循环；如果直接确认，则跳过校验进入下一阶段。
+父 Agent 完成初始生成后，向用户展示生成结果，由用户决定是否进入 AI 校验循环。如果选择 AI 校验，则驱动"生成 → 校验 → 修补 → 再校验"的循环（修补由父 Agent 完成）；如果直接确认，则跳过校验进入下一阶段。
 
-#### 3.1 初始生成（spec-generator Agent）
+#### 3.1 初始生成（父 Agent）
 
-父 Agent 启动 **spec-generator Agent**，分配以下任务：
+父 Agent 亲自完成 spec 的初始生成，不再启动 spec-generator 子 Agent。
 
-**spec-generator Agent 的职责：**
+**父 Agent 的生成职责：**
 
-1. 读取项目上下文和用户需求
+1. 读取项目上下文和用户需求（Step 1 澄清结果已在对话上下文中）
 2. 生成规格文档 `spec.md`，内容应包含：
    - **背景与目标**：为什么要做？成功标准是什么
    - **功能规格**：详细功能描述、输入/输出、边界情况
@@ -201,20 +201,11 @@ spec-generator 完成初始生成后，父 Agent 向用户展示生成结果，�
    - **技术方案**：架构决策、技术选型、依赖关系
    - **文件结构**：预计创建/修改的文件列表
 3. 写入 `.harness/temp/{vId}/spec.md`
-4. 向父 Agent 报告完成
-
-**报告格式：**
-
-```
-spec 生成完成 ✅
-路径：.harness/temp/{vId}/spec.md
-概要：[2-3 句话总结 spec 核心内容]
-主要涉及文件：file1, file2, ...
-```
+4. 向用户展示生成结果（概要由父 Agent 直接总结，无需等待子 Agent 报告）
 
 #### 3.2 生成后的用户选择
 
-spec-generator Agent 报告完成后，更新 `state.json`（`status: "spec_pending"`），父 Agent 向用户展示 spec 关键内容，并提供选择：
+父 Agent 完成 spec.md 生成后，更新 `state.json`（`status: "spec_pending"`），向用户展示 spec 关键内容，并提供选择：
 
 ```
 spec 生成完成 ✅
@@ -237,13 +228,13 @@ spec 生成完成 ✅
 |------|------|
 | **1. AI 校验** | 更新 `state.json`（`status: "spec_reviewing"`），进入 §3.3 AI 校验循环。校验完成后回到本界面，选项随之变化 |
 | **2. 直接确认** | 更新 `state.json`（`status: "spec_confirming"`），跳过 AI 校验，进入 Step 4（Plan 生成） |
-| **3. 重新生成** | 删除当前 spec.md，重新进入 §3.1（启动 spec-generator Agent 重新生成），完成后再次回到本界面 |
-| **4. 补充信息** | 更新 `state.json` 添加 `waitingFor: "user_supplement"` 字段，提示用户输入补充信息。用户提供后清除 `waitingFor`，重新启动 spec-generator Agent（带上补充信息作为额外输入），回到本界面 |
+| **3. 重新生成** | 删除当前 spec.md，重新进入 §3.1（父 Agent 重新生成），完成后再次回到本界面 |
+| **4. 补充信息** | 更新 `state.json` 添加 `waitingFor: "user_supplement"` 字段，提示用户输入补充信息。用户提供后清除 `waitingFor`，父 Agent 重新生成 spec.md（带上补充信息作为额外输入），回到本界面 |
 | **5. 手动修改** | 告知用户可直接编辑 `.harness/temp/{vId}/spec.md` 文件，修改完成后输入"继续"回到本界面重新选择 |
 
 #### 3.3 AI 校验循环（仅在用户选择时进入）
 
-当用户在 §3.2 选择"AI 校验"后，父 Agent 启动校验循环，驱动 **spec-reviewer Agent** 和 **spec-generator Agent** 交替工作：
+当用户在 §3.2 选择"AI 校验"后，父 Agent 启动校验循环，驱动 **spec-reviewer Agent** 审查、由 **父 Agent 亲自修补**：
 
 ```
 循环（最多5轮）：
@@ -254,11 +245,9 @@ spec 生成完成 ✅
   5. 父 Agent 读取 spec-suggest.md，判断：
      a. 无问题（或仅轻微措辞建议） → 删除 spec-suggest.md，退出循环 ✅
      b. 有实质性问题 → 进入第 6 步
-  6. 父 Agent 启动 spec-generator Agent（修补模式），传递 spec-suggest.md 内容
-  7. spec-generator Agent 读取 spec-suggest.md，逐条采纳建议并修改 spec.md
-  8. spec-generator Agent 向父 Agent 报告修补完成
-  9. 父 Agent 删除 spec-suggest.md
-  10. 回到第 1 步进行下一轮校验
+  6. 父 Agent 亲自修补：将 spec-suggest.md 中的建议逐条落实到 spec.md
+  7. 父 Agent 删除 spec-suggest.md
+  8. 回到第 1 步进行下一轮校验
 ```
 
 **各角色职责：**
@@ -266,8 +255,7 @@ spec 生成完成 ✅
 | 角色 | 职责 |
 |------|------|
 | **spec-reviewer Agent** | 以独立、挑剔视角审视 spec.md，专注于找出遗漏、矛盾、不清晰之处。输出 `spec-suggest.md` 给父 Agent，不直接修改 spec.md |
-| **spec-generator Agent（修补模式）** | 读取 `spec-suggest.md`，逐条评估并采纳合理建议，修改 `spec.md`。不质疑 reviewer 的发现，专注修补 |
-| **父 Agent** | 读取 `spec-suggest.md` 判断是否有实质性问题；驱动循环流程；管理临时文件 |
+| **父 Agent** | 生成 spec.md；读取 `spec-suggest.md` 判断是否有实质性问题；亲自将建议修复到 spec.md；删除建议文件；驱动循环流程 |
 
 > - 循环最多 **5 轮**，超过后强制退出
 > - spec-reviewer Agent 每次都以"第一次审查"的心态重新审视，不要因为之前提过建议就放行
@@ -323,18 +311,18 @@ P0: N 个  P1: N 个  P2: N 个
 
 ### Step 4：Plan 生成
 
-plan 生成阶段与 spec 生成阶段采用相同的**双 Agent 协作模式**（同样每次启动新的 Agent 实例）：
+plan 生成阶段与 spec 生成阶段采用相同的**父 Agent 生成 + 子 Agent 审查**模式：
 
-- **plan-generator Agent**：负责初始生成 plan.md，以及根据校验建议修补 plan.md
+- **父 Agent**：负责生成 plan.md，以及根据校验建议修补 plan.md
 - **plan-reviewer Agent**：负责校验 plan.md，生成 `plan-suggest.md`（校验建议文件）
 
-plan-generator 完成初始生成后，父 Agent 向用户展示生成结果，由用户决定是否进入 AI 校验循环。如果选择 AI 校验，则驱动"生成 → 校验 → 修补 → 再校验"的循环；如果直接确认，则跳过校验进入执行阶段。
+父 Agent 完成初始生成后，向用户展示生成结果，由用户决定是否进入 AI 校验循环。如果选择 AI 校验，则驱动"生成 → 校验 → 修补 → 再校验"的循环（修补由父 Agent 完成）；如果直接确认，则跳过校验进入执行阶段。
 
-#### 4.1 初始生成（plan-generator Agent）
+#### 4.1 初始生成（父 Agent）
 
-父 Agent 启动 **plan-generator Agent**，分配以下任务：
+父 Agent 亲自完成 plan 的初始生成，不再启动 plan-generator 子 Agent。
 
-**plan-generator Agent 的职责：**
+**父 Agent 的生成职责：**
 
 1. 读取已确认的 `.harness/temp/{vId}/spec.md`
 2. 将开发过程拆解为**可独立提交的步骤**，每个步骤包含：
@@ -344,21 +332,11 @@ plan-generator 完成初始生成后，父 Agent 向用户展示生成结果，�
    - **验收标准**：怎么知道这一步做完了（**关键约束：每步完成后必须能独立通过测试，不影响已有功能**）
 3. 写入 `.harness/temp/{vId}/plan.md`
 4. 汇总所有步骤的"涉及文件"，形成 `allowedPaths` 列表
-5. 向父 Agent 报告完成
-
-**报告格式：**
-
-```
-plan 生成完成 ✅
-路径：.harness/temp/{vId}/plan.md
-步骤数：N 个步骤
-允许文件路径：[file1, dir2/, ...]
-概要：[各步骤名称简述]
-```
+5. 向用户展示生成结果（概要由父 Agent 直接总结）
 
 #### 4.2 生成后的用户选择
 
-plan-generator Agent 报告完成后，更新 `state.json`（`status: "plan_pending"`），父 Agent 向用户展示 plan 关键内容，并提供选择：
+父 Agent 完成 plan.md 生成后，更新 `state.json`（`status: "plan_pending"`），向用户展示 plan 关键内容，并提供选择：
 
 ```
 plan 生成完成 ✅
@@ -382,13 +360,13 @@ plan 生成完成 ✅
 |------|------|
 | **1. AI 校验** | 更新 `state.json`（`status: "plan_reviewing"`），进入 §4.3 AI 校验循环。校验完成后回到本界面，选项随之变化 |
 | **2. 直接确认** | 更新 `state.json`（`status: "plan_confirming"`），跳过 AI 校验，进入 §4.5 写入状态与文件范围 |
-| **3. 重新生成** | 删除当前 plan.md，重新进入 §4.1（启动 plan-generator Agent 重新生成），完成后再次回到本界面 |
-| **4. 补充信息** | 更新 `state.json` 添加 `waitingFor: "user_supplement"` 字段，提示用户输入补充信息。如果补充信息涉及需求变更或 spec 调整，父 Agent 应先引导用户更新 spec.md（回到 Step 3），再基于更新后的 spec 重新生成 plan。否则直接重新启动 plan-generator Agent（带上补充信息），回到本界面 |
+| **3. 重新生成** | 删除当前 plan.md，重新进入 §4.1（父 Agent 重新生成），完成后再次回到本界面 |
+| **4. 补充信息** | 更新 `state.json` 添加 `waitingFor: "user_supplement"` 字段，提示用户输入补充信息。如果补充信息涉及需求变更或 spec 调整，父 Agent 应先引导用户更新 spec.md（回到 Step 3），再基于更新后的 spec 重新生成 plan。否则父 Agent 直接重新生成 plan.md（带上补充信息），回到本界面 |
 | **5. 手动修改** | 告知用户可直接编辑 `.harness/temp/{vId}/plan.md` 文件。如果新增或修改了涉及文件，需同步更新 `state.json` 中的 `plan.allowedPaths`。修改完成后输入"继续"回到本界面重新选择 |
 
 #### 4.3 AI 校验循环（仅在用户选择时进入）
 
-当用户在 §4.2 选择"AI 校验"后，父 Agent 启动校验循环，驱动 **plan-reviewer Agent** 和 **plan-generator Agent** 交替工作：
+当用户在 §4.2 选择"AI 校验"后，父 Agent 启动校验循环，驱动 **plan-reviewer Agent** 审查、由 **父 Agent 亲自修补**：
 
 ```
 循环（最多5轮）：
@@ -399,11 +377,9 @@ plan 生成完成 ✅
   5. 父 Agent 读取 plan-suggest.md，判断：
      a. 无问题（或仅轻微措辞建议） → 删除 plan-suggest.md，退出循环 ✅
      b. 有实质性问题 → 进入第 6 步
-  6. 父 Agent 启动 plan-generator Agent（修补模式），传递 plan-suggest.md 内容
-  7. plan-generator Agent 读取 plan-suggest.md，逐条采纳建议并修改 plan.md
-  8. plan-generator Agent 向父 Agent 报告修补完成
-  9. 父 Agent 删除 plan-suggest.md
-  10. 回到第 1 步进行下一轮校验
+  6. 父 Agent 亲自修补：将 plan-suggest.md 中的建议逐条落实到 plan.md
+  7. 父 Agent 删除 plan-suggest.md
+  8. 回到第 1 步进行下一轮校验
 ```
 
 **各角色职责：**
@@ -411,8 +387,7 @@ plan 生成完成 ✅
 | 角色 | 职责 |
 |------|------|
 | **plan-reviewer Agent** | 以独立、挑剔视角审视 plan.md，专注于检查步骤划分是否合理、文件是否完整、依赖顺序是否正确、是否存在遗漏。输出 `plan-suggest.md` 给父 Agent，不直接修改 plan.md |
-| **plan-generator Agent（修补模式）** | 读取 `plan-suggest.md`，逐条评估并采纳合理建议，修改 `plan.md` |
-| **父 Agent** | 读取 `plan-suggest.md` 判断是否有实质性问题；驱动循环流程；管理临时文件 |
+| **父 Agent** | 生成 plan.md；读取 `plan-suggest.md` 判断是否有实质性问题；亲自将建议修复到 plan.md；删除建议文件；驱动循环流程 |
 
 > - 循环最多 **5 轮**，超过后强制退出
 > - plan-reviewer Agent 每次都以"第一次审查"的心态重新审视
@@ -460,7 +435,7 @@ P0: N 个  P1: N 个  P2: N 个
 
 用户选择"继续"后：
 
-1. **写入 allowedPaths**：将 plan-generator Agent（最新修补后）报告的 `allowedPaths` 写入 `state.json`：
+1. **写入 allowedPaths**：将父 Agent 生成 plan 时汇总的 `allowedPaths` 写入 `state.json`：
    ```json
    {
      "status": "plan_confirming",
@@ -724,12 +699,12 @@ Execution Agent 按 plan.md 中的步骤**逐个**执行，每步流程如下：
      - `waitingFor` 为 `null` 或不存在 → 根据 `status` 正常跳转
      - `spec_pending` → 从 **§3.2 生成后的用户选择**继续（展示 spec 概要，让用户重新选择）
      - `spec_reviewing` → 检测 `.harness/temp/{vId}/spec-suggest.md` 是否存在且有实质性问题：
-       - 是 → 从 **§3.3 AI 校验循环**继续（启动 spec-generator 修补模式）
+       - 是 → 从 **§3.3 AI 校验循环**继续（父 Agent 读取 spec-suggest.md 亲自修补 spec.md）
        - 否 → 从 **§3.2 生成后的用户选择**继续（校验已完成，展示选择界面）
      - `spec_confirming` → 从 **§3.4 确认进入下一阶段**继续（直接进入 Step 4）
      - `plan_pending` → 从 **§4.2 生成后的用户选择**继续（展示 plan 概要，让用户重新选择）
      - `plan_reviewing` → 检测 `.harness/temp/{vId}/plan-suggest.md` 是否存在且有实质性问题：
-       - 是 → 从 **§4.3 AI 校验循环**继续（启动 plan-generator 修补模式）
+       - 是 → 从 **§4.3 AI 校验循环**继续（父 Agent 读取 plan-suggest.md 亲自修补 plan.md）
        - 否 → 从 **§4.2 生成后的用户选择**继续（校验已完成，展示选择界面）
      - `plan_confirming` → 从 **§4.4 确认进入下一阶段**继续（直接进入 §4.5 写入状态）
      - `executing` → 从 Step 5 继续：
